@@ -1,0 +1,425 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Forgent Initial Comp Breakdown v1 — Optimal Plan</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body style="margin:0;padding:0;background:#09100d;">
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+
+const BASE_GROSS_MONTHLY  = 7_917;
+const BASE_TAX_MONTHLY    = 2_151;
+const ROTH_401K_MONTHLY   = 516;
+const ROTH_401K_ANNUAL    = 6_192;
+const BASE_NET_MONTHLY    = 5_250;
+
+const BACKDOOR_IRA        = 7_500;
+const BUDGET              = 5_250;
+const ANNUAL_LIFESTYLE    = BUDGET * 12;
+
+const BASE_TAXES_ANNUAL   = 25_808;
+const COMM_TAX_RATE       = 0.41;
+const COMM_AT_100PCT      = 23_750;
+
+function calcQuota(mult) {
+  const commGross  = Math.round(COMM_AT_100PCT * mult);
+  const commTax    = Math.round(commGross * COMM_TAX_RATE);
+  const commNet    = commGross - commTax;
+  const brokerage  = commNet - BACKDOOR_IRA;
+  const totalGross = 95_000 + commGross;
+  const totalTax   = BASE_TAXES_ANNUAL + commTax;
+  const totalRoth  = ROTH_401K_ANNUAL + BACKDOOR_IRA;
+  const totalInvested = totalRoth + Math.max(0, brokerage);
+  return { commGross, commTax, commNet, brokerage, totalGross, totalTax, totalRoth, totalInvested };
+}
+
+const QUOTAS = [
+  { id:"100", label:"100% Quota",  mult:1.0, tag:"Floor",      color:"#d97b4a" },
+  { id:"150", label:"150% Target", mult:1.5, tag:"Base Case",  color:"#c9a84c" },
+  { id:"200", label:"200% Stretch",mult:2.0, tag:"Recent Avg", color:"#5e8a6a" },
+];
+
+const fmt = (n) => n.toLocaleString("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0});
+const pct = (a,b) => ((a/b)*100).toFixed(1)+"%";
+
+const ACCOUNTS = [
+  {
+    priority:"01", name:"Roth 401(k)", amount:ROTH_401K_ANNUAL, freq:"$516 / month", color:"#c9a84c",
+    why:"Calibrated to exactly zero out your base paycheck gap. Base covers life. Commission covers investing. Clean separation.",
+    holds:"IBIT ETF (if plan allows) or closest BTC proxy available. Ask HR for brokerage window access.",
+    when:"Set contribution rate on day one. Never touch it.",
+  },
+  {
+    priority:"02", name:"Backdoor Roth IRA", amount:BACKDOOR_IRA, freq:"Lump sum · year-end", color:"#7ba0d9",
+    why:"Full $7,500 — not half. It's 35% of your commission net but the most powerful tax-free bucket you have. 35+ year runway makes this asymmetric.",
+    holds:"IBIT shares or ETHA. Longest time horizon in your portfolio — most aggressive positioning appropriate here.",
+    when:"Fund immediately from year-end commission check. Contribute to traditional IRA → convert to Roth within days.",
+  },
+  {
+    priority:"03", name:"Taxable Brokerage", amount:null, freq:"Remainder of commission", color:"#5e8a6a",
+    why:"Everything left after IRA. This is where your edge lives — IBIT wheel, SPX spreads, MSTR calls. Needs liquidity and margin. Robinhood Gold.",
+    holds:"IBIT shares (wheel collateral), IBIT/MSTR calls, ETHA, SPX credit spreads. Active deployment.",
+    when:"Same day as IRA is funded. Wire remainder to Robinhood Gold.",
+  },
+];
+
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function OptimalPlan() {
+  const [quota, setQuota] = useState("150");
+  const [tab, setTab]     = useState("overview");
+  const q = QUOTAS.find(x => x.id === quota);
+  const d = calcQuota(q.mult);
+
+  return (
+    <div style={{
+      minHeight:"100vh",
+      background:"#09100d",
+      color:"#e2ddd4",
+      fontFamily:"'DM Mono','Courier New',monospace",
+      padding:"36px 20px",
+    }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Cormorant+Garamond:ital,wght@0,300;0,600;0,700;1,300;1,600&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0;}
+        .btn{background:none;border:none;cursor:pointer;font-family:inherit;transition:all .2s;}
+        .btn:hover{opacity:.8;}
+        .row:hover{background:rgba(255,255,255,0.03)!important;}
+        .acc:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,.4);}
+        .acc{transition:all .25s;}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+        .fade{animation:fadeUp .4s ease forwards;}
+      `}</style>
+
+      <div style={{maxWidth:860,margin:"0 auto"}}>
+
+        <div style={{marginBottom:32}}>
+          <div style={{fontSize:9,letterSpacing:5,color:"#5e8a6a",textTransform:"uppercase",marginBottom:8}}>
+            Optimal Financial Plan · MGM / Forgent · 2026
+          </div>
+          <h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"clamp(32px,6vw,54px)",fontWeight:300,fontStyle:"italic",letterSpacing:-1,lineHeight:1.05,marginBottom:10}}>
+            The Plan,<br/>
+            <span style={{fontWeight:700,fontStyle:"normal",color:"#5e8a6a"}}>Optimized.</span>
+          </h1>
+          <p style={{fontSize:11,color:"#4a5a50",lineHeight:1.9,maxWidth:560}}>
+            Base paycheck covers life exactly. Commission check is 100% investment capital.<br/>
+            Every dollar has one job. Nothing leaks.
+          </p>
+        </div>
+
+        <div style={{border:"1px solid rgba(94,185,120,.2)",borderLeft:"3px solid #5e8a6a",borderRadius:"0 10px 10px 0",padding:"16px 20px",background:"rgba(94,185,120,.05)",marginBottom:28}}>
+          <div style={{fontSize:9,letterSpacing:3,color:"#5e8a6a",textTransform:"uppercase",marginBottom:8}}>The Optimization</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:16}}>
+            {[
+              {label:"Roth 401(k) set to",value:"$516 / mo",sub:"not $979 — calibrated to zero the gap"},
+              {label:"Base take-home",value:"$5,250",sub:"exactly your budget. to the dollar."},
+              {label:"Commission check",value:"100% invested",sub:"zero lifestyle dependency on variable pay"},
+              {label:"Backdoor IRA",value:"Full $7,500",sub:"not half — worth maximizing at 26"},
+            ].map(k=>(
+              <div key={k.label}>
+                <div style={{fontSize:9,color:"#4a5a50",letterSpacing:2,textTransform:"uppercase",marginBottom:5}}>{k.label}</div>
+                <div style={{fontSize:16,fontWeight:600,color:"#5e8a6a"}}>{k.value}</div>
+                <div style={{fontSize:10,color:"#4a6050",marginTop:3,fontStyle:"italic"}}>{k.sub}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{marginBottom:24}}>
+          <div style={{fontSize:9,letterSpacing:3,color:"#4a5a50",textTransform:"uppercase",marginBottom:12}}>Quota scenario</div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            {QUOTAS.map(sc=>{
+              const dd=calcQuota(sc.mult);
+              const isActive=quota===sc.id;
+              return(
+                <button key={sc.id} className="btn"
+                  onClick={()=>setQuota(sc.id)}
+                  style={{padding:"12px 18px",borderRadius:8,border:isActive?`1px solid ${sc.color}60`:"1px solid rgba(255,255,255,.07)",background:isActive?`${sc.color}12`:"rgba(255,255,255,.02)",textAlign:"left",minWidth:150}}>
+                  <div style={{fontSize:9,color:isActive?sc.color:"#4a5a50",letterSpacing:2,textTransform:"uppercase",marginBottom:5}}>{sc.tag}</div>
+                  <div style={{fontSize:13,color:isActive?"#e2ddd4":"#6a6660",marginBottom:8}}>{sc.label}</div>
+                  <div style={{fontSize:18,fontWeight:600,color:isActive?sc.color:"#5a5a5a"}}>{fmt(dd.brokerage>0?dd.brokerage:0)}</div>
+                  <div style={{fontSize:9,color:"#4a5a50",marginTop:2}}>→ brokerage</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{display:"flex",gap:2,borderBottom:"1px solid rgba(255,255,255,.07)",marginBottom:24}}>
+          {[["overview","Overview"],["accounts","Accounts & Allocation"],["cashflow","Cash Flow"],["scenarios","All Scenarios"]].map(([id,label])=>(
+            <button key={id} className="btn"
+              onClick={()=>setTab(id)}
+              style={{padding:"9px 14px",fontSize:10,letterSpacing:2,textTransform:"uppercase",color:tab===id?"#5e8a6a":"#4a5a50",borderBottom:tab===id?"2px solid #5e8a6a":"2px solid transparent",marginBottom:-1}}>{label}</button>
+          ))}
+        </div>
+
+        {tab==="overview" && (
+          <div className="fade">
+            <div style={{fontSize:9,letterSpacing:3,color:"#4a5a50",textTransform:"uppercase",marginBottom:14}}>Annual Dollar Flow · {q.label}</div>
+            <div style={{marginBottom:24}}>
+              <div style={{height:16,borderRadius:8,overflow:"hidden",display:"flex",marginBottom:12}}>
+                {[
+                  {w:(d.totalTax/d.totalGross)*100,       color:"#8b3a3a"},
+                  {w:(ANNUAL_LIFESTYLE/d.totalGross)*100,  color:"#3a5a8b"},
+                  {w:(ROTH_401K_ANNUAL/d.totalGross)*100,  color:"#c9a84c"},
+                  {w:(BACKDOOR_IRA/d.totalGross)*100,      color:"#7ba0d9"},
+                  {w:(Math.max(0,d.brokerage)/d.totalGross)*100, color:"#5e8a6a"},
+                ].map((s,i)=>(<div key={i} style={{width:`${s.w}%`,background:s.color,transition:"width .5s"}}/>))}
+              </div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:"8px 20px"}}>
+                {[
+                  {label:"Taxes",     color:"#8b3a3a", val:d.totalTax},
+                  {label:"Lifestyle", color:"#3a5a8b", val:ANNUAL_LIFESTYLE},
+                  {label:"Roth 401k", color:"#c9a84c", val:ROTH_401K_ANNUAL},
+                  {label:"Roth IRA",  color:"#7ba0d9", val:BACKDOOR_IRA},
+                  {label:"Brokerage", color:"#5e8a6a", val:Math.max(0,d.brokerage)},
+                ].map(item=>(
+                  <div key={item.label} style={{display:"flex",alignItems:"center",gap:7,fontSize:10,color:"#6a7a70"}}>
+                    <div style={{width:8,height:8,background:item.color,borderRadius:2,flexShrink:0}}/>
+                    {item.label} — {fmt(item.val)} ({pct(item.val,d.totalGross)})
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10,marginBottom:24}}>
+              {[
+                {label:"Total Gross",    val:fmt(d.totalGross),     color:"#e2ddd4"},
+                {label:"Total Taxes",    val:fmt(d.totalTax),       color:"#8b3a3a"},
+                {label:"Take-Home/mo",   val:"$5,250",              color:"#3a5a8b"},
+                {label:"Into Roth",      val:fmt(d.totalRoth),      color:"#c9a84c"},
+                {label:"→ Brokerage",   val:fmt(Math.max(0,d.brokerage)), color:"#5e8a6a"},
+                {label:"Total Invested", val:fmt(d.totalInvested),  color:"#e2ddd4"},
+              ].map(k=>(
+                <div key={k.label} style={{background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",borderRadius:10,padding:"14px 16px"}}>
+                  <div style={{fontSize:9,letterSpacing:2,color:"#4a5a50",textTransform:"uppercase",marginBottom:8}}>{k.label}</div>
+                  <div style={{fontSize:"clamp(16px,2.5vw,22px)",fontWeight:600,color:k.color}}>{k.val}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <div style={{border:"1px solid rgba(255,255,255,.07)",borderRadius:12,padding:20,background:"rgba(255,255,255,.02)"}}>
+                <div style={{fontSize:9,letterSpacing:3,color:"#4a5a50",textTransform:"uppercase",marginBottom:16}}>Monthly Base Paycheck</div>
+                {[
+                  {label:"Gross",       val:fmt(BASE_GROSS_MONTHLY), color:"#e2ddd4",sign:""},
+                  {label:"Taxes",       val:fmt(BASE_TAX_MONTHLY),   color:"#8b3a3a",sign:"−"},
+                  {label:"Roth 401(k)", val:fmt(ROTH_401K_MONTHLY),  color:"#c9a84c",sign:"−"},
+                  {label:"Take-Home",   val:fmt(BASE_NET_MONTHLY),   color:"#5e8a6a",sign:"=",bold:true},
+                  {label:"Budget",      val:fmt(BUDGET),             color:"#3a5a8b",sign:"−"},
+                  {label:"Remaining",   val:"$0",                    color:"#5a6a60",sign:"=",bold:true},
+                ].map(row=>(
+                  <div key={row.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderTop:row.bold?"1px solid rgba(255,255,255,.07)":"none",marginTop:row.bold?4:0}}>
+                    <span style={{fontSize:11,color:row.bold?"#b0b0b0":"#5a6a60"}}>{row.sign} {row.label}</span>
+                    <span style={{fontSize:13,fontWeight:row.bold?700:400,color:row.color}}>{row.sign==="−"?"-":""}{row.val}</span>
+                  </div>
+                ))}
+                <div style={{marginTop:14,padding:"10px 12px",background:"rgba(94,185,120,.06)",borderRadius:7,fontSize:10,color:"#4a6050",lineHeight:1.8}}>
+                  Base paycheck lands → budget consumed. Zero dependency on commission to live.
+                </div>
+              </div>
+
+              <div style={{border:"1px solid rgba(201,168,76,.2)",borderRadius:12,padding:20,background:"rgba(201,168,76,.04)"}}>
+                <div style={{fontSize:9,letterSpacing:3,color:"#c9a84c",textTransform:"uppercase",marginBottom:16}}>Year-End Commission · {q.label}</div>
+                {[
+                  {label:"Gross Commission",     val:fmt(d.commGross),             color:"#e2ddd4",sign:""},
+                  {label:"Tax (41% suppl.)",     val:fmt(d.commTax),               color:"#8b3a3a",sign:"−"},
+                  {label:"Net Commission",       val:fmt(d.commNet),               color:"#e2ddd4",sign:"=",bold:true},
+                  {label:"Backdoor Roth IRA",    val:fmt(BACKDOOR_IRA),            color:"#7ba0d9",sign:"−"},
+                  {label:"→ Taxable Brokerage", val:fmt(Math.max(0,d.brokerage)), color:"#5e8a6a",sign:"=",bold:true},
+                ].map(row=>(
+                  <div key={row.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderTop:row.bold?"1px solid rgba(255,255,255,.07)":"none",marginTop:row.bold?4:0}}>
+                    <span style={{fontSize:11,color:row.bold?"#b0b0b0":"#5a6a60"}}>{row.sign} {row.label}</span>
+                    <span style={{fontSize:13,fontWeight:row.bold?700:400,color:row.color}}>{row.sign==="−"?"-":""}{row.val}</span>
+                  </div>
+                ))}
+                <div style={{marginTop:14,padding:"10px 12px",background:"rgba(201,168,76,.07)",borderRadius:7,fontSize:10,color:"#7a6a40",lineHeight:1.8}}>
+                  Commission lands → fund IRA first (same day) → wire remainder to Robinhood Gold.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab==="accounts" && (
+          <div className="fade">
+            <div style={{fontSize:9,letterSpacing:3,color:"#4a5a50",textTransform:"uppercase",marginBottom:16}}>Priority Order · What Goes Where</div>
+            <div style={{display:"flex",flexDirection:"column",gap:14,marginBottom:24}}>
+              {ACCOUNTS.map((acc)=>(
+                <div key={acc.name} className="acc" style={{border:`1px solid ${acc.color}30`,borderLeft:`3px solid ${acc.color}`,borderRadius:"0 12px 12px 0",padding:22,background:`${acc.color}06`,cursor:"default"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10,marginBottom:14}}>
+                    <div>
+                      <div style={{fontSize:9,color:acc.color,letterSpacing:3,textTransform:"uppercase",marginBottom:5}}>Priority {acc.priority}</div>
+                      <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:600,color:"#e2ddd4"}}>{acc.name}</div>
+                    </div>
+                    <div style={{textAlign:"right"}}>
+                      <div style={{fontSize:20,fontWeight:700,color:acc.color}}>
+                        {acc.amount ? fmt(acc.amount) : fmt(Math.max(0,calcQuota(QUOTAS.find(x=>x.id===quota).mult).brokerage))}
+                      </div>
+                      <div style={{fontSize:10,color:"#4a5a50",marginTop:3}}>{acc.freq}</div>
+                    </div>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                    <div style={{background:"rgba(0,0,0,.2)",borderRadius:8,padding:"12px 14px"}}>
+                      <div style={{fontSize:9,color:"#4a5a50",letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>Why first</div>
+                      <div style={{fontSize:11,color:"#8a9a90",lineHeight:1.8}}>{acc.why}</div>
+                    </div>
+                    <div style={{background:"rgba(0,0,0,.2)",borderRadius:8,padding:"12px 14px"}}>
+                      <div style={{fontSize:9,color:"#4a5a50",letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>What it holds</div>
+                      <div style={{fontSize:11,color:"#8a9a90",lineHeight:1.8}}>{acc.holds}</div>
+                    </div>
+                  </div>
+                  <div style={{marginTop:10,fontSize:10,color:`${acc.color}80`,letterSpacing:1}}>↳ {acc.when}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{border:"1px solid rgba(255,255,255,.07)",borderRadius:12,padding:20,background:"rgba(255,255,255,.02)"}}>
+              <div style={{fontSize:9,letterSpacing:3,color:"#4a5a50",textTransform:"uppercase",marginBottom:16}}>Asset Location Map</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:12}}>
+                {[
+                  {account:"Roth 401(k)",color:"#c9a84c",assets:["IBIT ETF (primary)","BTC-linked fund if no IBIT","Aggressive growth — long hold"],note:"Ask HR for brokerage window"},
+                  {account:"Roth IRA",   color:"#7ba0d9",assets:["IBIT shares","ETHA shares","No options — pure long holds"],note:"Fidelity or Schwab — open now"},
+                  {account:"Brokerage",  color:"#5e8a6a",assets:["IBIT (wheel collateral)","MSTR + options","SPX credit spreads","ETHA position"],note:"Robinhood Gold — margin enabled"},
+                ].map(a=>(
+                  <div key={a.account} style={{background:`${a.color}08`,border:`1px solid ${a.color}25`,borderRadius:10,padding:16}}>
+                    <div style={{fontSize:11,fontWeight:600,color:a.color,marginBottom:10}}>{a.account}</div>
+                    {a.assets.map(asset=>(
+                      <div key={asset} style={{fontSize:10,color:"#6a7a70",padding:"3px 0",borderBottom:"1px solid rgba(255,255,255,.04)",display:"flex",alignItems:"center",gap:6}}>
+                        <span style={{color:a.color,fontSize:8}}>▸</span>{asset}
+                      </div>
+                    ))}
+                    <div style={{fontSize:9,color:"#4a5a50",marginTop:10,fontStyle:"italic"}}>{a.note}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab==="cashflow" && (
+          <div className="fade">
+            <div style={{fontSize:9,letterSpacing:3,color:"#4a5a50",textTransform:"uppercase",marginBottom:14}}>Month-by-Month · {q.label}</div>
+            <div style={{border:"1px solid rgba(255,255,255,.07)",borderRadius:12,overflow:"hidden",marginBottom:20}}>
+              <div style={{display:"grid",gridTemplateColumns:"1.5fr 1fr 1fr 1fr",padding:"11px 18px",background:"rgba(255,255,255,.03)",borderBottom:"1px solid rgba(255,255,255,.07)",fontSize:9,letterSpacing:2,color:"#4a5a50",textTransform:"uppercase"}}>
+                <div>Month</div>
+                <div style={{textAlign:"right"}}>Paycheck</div>
+                <div style={{textAlign:"right"}}>Budget</div>
+                <div style={{textAlign:"right"}}>Invested</div>
+              </div>
+              {MONTHS.map((m,i)=>{
+                const isLast = i===11;
+                const investedColor = isLast ? "#5e8a6a" : "#c9a84c";
+                return(
+                  <div key={m} className="row" style={{display:"grid",gridTemplateColumns:"1.5fr 1fr 1fr 1fr",padding:"12px 18px",borderBottom:i<11?"1px solid rgba(255,255,255,.04)":"none",background:isLast?"rgba(94,185,120,.07)":undefined,transition:"background .15s"}}>
+                    <div>
+                      <span style={{fontSize:13,fontWeight:500}}>{m}</span>
+                      {isLast&&<span style={{fontSize:9,color:"#5e8a6a",marginLeft:8,letterSpacing:1}}>COMM ARRIVES</span>}
+                    </div>
+                    <div style={{textAlign:"right",fontSize:13,color:"#8a9a8a"}}>{fmt(BASE_NET_MONTHLY)}</div>
+                    <div style={{textAlign:"right",fontSize:13,color:"#3a5a8b"}}>{fmt(BUDGET)}</div>
+                    <div style={{textAlign:"right",fontSize:isLast?11:13,color:investedColor,fontWeight:isLast?600:400}}>
+                      {isLast ? `${fmt(ROTH_401K_MONTHLY)} + IRA + Broker` : fmt(ROTH_401K_MONTHLY)}
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{display:"grid",gridTemplateColumns:"1.5fr 1fr 1fr 1fr",padding:"13px 18px",background:"rgba(255,255,255,.04)",borderTop:"1px solid rgba(255,255,255,.1)",fontSize:13,fontWeight:700}}>
+                <div style={{fontSize:10,color:"#4a5a50",letterSpacing:1,textTransform:"uppercase",alignSelf:"center"}}>Annual</div>
+                <div style={{textAlign:"right",color:"#e2ddd4"}}>{fmt(BASE_NET_MONTHLY*12)}</div>
+                <div style={{textAlign:"right",color:"#3a5a8b"}}>{fmt(BUDGET*12)}</div>
+                <div style={{textAlign:"right",color:"#5e8a6a"}}>{fmt(d.totalInvested)}</div>
+              </div>
+            </div>
+
+            <div style={{border:"1px solid rgba(94,185,120,.2)",borderRadius:12,padding:20,background:"rgba(94,185,120,.04)"}}>
+              <div style={{fontSize:9,letterSpacing:3,color:"#5e8a6a",textTransform:"uppercase",marginBottom:14}}>December · Year-End Sequence</div>
+              {[
+                {step:"1",action:"Commission hits account",amount:fmt(d.commNet),color:"#e2ddd4",note:"After 41% supplemental withholding"},
+                {step:"2",action:"Fund Traditional IRA",amount:fmt(BACKDOOR_IRA),color:"#7ba0d9",note:"Contribute $7,500 → convert to Roth within 48hrs"},
+                {step:"3",action:"Wire to Robinhood Gold",amount:fmt(Math.max(0,d.brokerage)),color:"#5e8a6a",note:"Deploy into IBIT position / wheel collateral"},
+              ].map(row=>(
+                <div key={row.step} style={{display:"flex",gap:14,alignItems:"flex-start",padding:"10px 0",borderBottom:"1px solid rgba(255,255,255,.05)"}}>
+                  <div style={{width:24,height:24,borderRadius:"50%",background:`${row.color}20`,border:`1px solid ${row.color}40`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:row.color,fontWeight:700,flexShrink:0}}>{row.step}</div>
+                  <div style={{flex:1}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <span style={{fontSize:13,color:"#b0b8b0"}}>{row.action}</span>
+                      <span style={{fontSize:14,fontWeight:600,color:row.color}}>{row.amount}</span>
+                    </div>
+                    <div style={{fontSize:10,color:"#4a5a50",marginTop:3}}>{row.note}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {tab==="scenarios" && (
+          <div className="fade">
+            <div style={{fontSize:9,letterSpacing:3,color:"#4a5a50",textTransform:"uppercase",marginBottom:14}}>All Quota Outcomes · Same Plan, Different Commission</div>
+            <div style={{border:"1px solid rgba(255,255,255,.07)",borderRadius:12,overflow:"hidden",marginBottom:20}}>
+              <div style={{display:"grid",gridTemplateColumns:"1.5fr repeat(3,1fr)",padding:"11px 18px",background:"rgba(255,255,255,.03)",borderBottom:"1px solid rgba(255,255,255,.07)",fontSize:9,letterSpacing:2,color:"#4a5a50",textTransform:"uppercase"}}>
+                <div></div>
+                {QUOTAS.map(sc=>(<div key={sc.id} style={{textAlign:"right",color:sc.color}}>{sc.tag}</div>))}
+              </div>
+              {[
+                {label:"Total Gross",    key:"totalGross",   color:null},
+                {label:"Total Taxes",    key:"totalTax",     color:"#8b3a3a"},
+                {label:"Lifestyle",      key:null,           val:fmt(ANNUAL_LIFESTYLE),color:"#3a5a8b"},
+                {label:"Roth 401(k)",    key:null,           val:fmt(ROTH_401K_ANNUAL),color:"#c9a84c"},
+                {label:"Backdoor IRA",   key:null,           val:fmt(BACKDOOR_IRA),    color:"#7ba0d9"},
+                {label:"→ Brokerage",   key:"brokerage",    color:"#5e8a6a",bold:true},
+                {label:"Total Invested", key:"totalInvested",color:"#e2ddd4",bold:true},
+              ].map((row,i)=>{
+                const vals = QUOTAS.map(sc=>calcQuota(sc.mult));
+                return(
+                  <div key={row.label} style={{display:"grid",gridTemplateColumns:"1.5fr repeat(3,1fr)",padding:"13px 18px",borderBottom:i<6?"1px solid rgba(255,255,255,.04)":"none",background:row.bold?"rgba(255,255,255,.03)":i%2===0?"rgba(255,255,255,.01)":undefined}}>
+                    <div style={{fontSize:row.bold?12:11,color:row.bold?"#b0b8b0":"#5a6a60",fontWeight:row.bold?600:400}}>{row.label}</div>
+                    {QUOTAS.map(sc=>{
+                      const dd=calcQuota(sc.mult);
+                      const val=row.val || fmt(Math.max(0,row.key?dd[row.key]:0));
+                      const color=row.color||sc.color;
+                      return(<div key={sc.id} style={{textAlign:"right",fontSize:row.bold?14:13,fontWeight:row.bold?700:400,color}}>{val}</div>);
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+              {QUOTAS.map(sc=>{
+                const dd=calcQuota(sc.mult);
+                const msgs={"100":"Even at floor quota, the plan holds. IRA still funded. Small brokerage deposit. Base covers life. No crisis.","150":"Base case. Solid brokerage injection annually. IRA maxed. Roth stack growing. This is the plan.","200":`If MGM keeps hitting 200% you're deploying real capital. ${fmt(dd.brokerage)} into the wheel strategy compounding alongside Roth accounts.`};
+                return(
+                  <div key={sc.id} style={{border:`1px solid ${sc.color}25`,borderRadius:10,padding:16,background:`${sc.color}06`}}>
+                    <div style={{fontSize:9,color:sc.color,letterSpacing:2,textTransform:"uppercase",marginBottom:8}}>{sc.tag}</div>
+                    <div style={{fontSize:18,fontWeight:700,color:sc.color,marginBottom:6}}>{fmt(Math.max(0,dd.brokerage))}</div>
+                    <div style={{fontSize:9,color:"#4a5a50",marginBottom:10}}>to brokerage</div>
+                    <div style={{fontSize:10,color:"#5a6a60",lineHeight:1.8}}>{msgs[sc.id]}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div style={{marginTop:28,fontSize:9,color:"#2a3a2e",lineHeight:1.9,letterSpacing:.5}}>
+          Estimates only · 2026 tax brackets · single filer · standard deduction · supplemental commission rate 41% · consult a CPA
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<OptimalPlan />);
+</script>
+</body>
+</html>
