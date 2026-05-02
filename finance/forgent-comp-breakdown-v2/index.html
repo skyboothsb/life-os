@@ -1,0 +1,462 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Forgent Comp Breakdown v2 — Accelerator Plan</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body style="margin:0;padding:0;background:#0b0c0b;">
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+
+const BASE            = 95_000;
+const BASE_MONTHLY    = BASE / 12;
+const BONUS_AT_100PCT = BASE * 0.25;
+
+const BONUS_MULT = { "100": 1, "150": 4, "200": 6 };
+
+const BASE_TAX_ANNUAL  = 25_808;
+const BASE_TAX_MONTHLY = Math.round(BASE_TAX_ANNUAL / 12);
+const SUPP_TAX_RATE    = 0.41;
+
+const ROTH_401K_MONTHLY = 516;
+const ROTH_401K_ANNUAL  = ROTH_401K_MONTHLY * 12;
+const BASE_NET_MONTHLY  = Math.round(BASE_MONTHLY - BASE_TAX_MONTHLY - ROTH_401K_MONTHLY);
+const BUDGET            = 5_250;
+
+const BACKDOOR_IRA = 7_500;
+
+function calc(quotaId) {
+  const mult       = BONUS_MULT[quotaId];
+  const bonusGross = Math.round(BONUS_AT_100PCT * mult);
+  const bonusTax   = Math.round(bonusGross * SUPP_TAX_RATE);
+  const bonusNet   = bonusGross - bonusTax;
+  const afterIRA   = bonusNet - BACKDOOR_IRA;
+  const brokerage  = afterIRA;
+  const totalGross = BASE + bonusGross;
+  const totalTax   = BASE_TAX_ANNUAL + bonusTax;
+  const totalRoth  = ROTH_401K_ANNUAL + BACKDOOR_IRA;
+  const totalInvested = totalRoth + Math.max(0, brokerage);
+  const annualSpendable = BUDGET * 12;
+  const savingsRate = ((totalInvested / totalGross) * 100).toFixed(1);
+  return { bonusGross, bonusTax, bonusNet, afterIRA, brokerage, totalGross, totalTax, totalRoth, totalInvested, annualSpendable, savingsRate, mult };
+}
+
+const SCENARIOS = [
+  { id:"100", label:"100% Quota",   tag:"Floor",       color:"#c0784a", accent:"#8b4a20" },
+  { id:"150", label:"150% Target",  tag:"Base Case",   color:"#c9a84c", accent:"#8b6a20" },
+  { id:"200", label:"200% Stretch", tag:"Recent Avg",  color:"#5e8a6a", accent:"#2a5a3a" },
+];
+
+const fmt  = (n) => n.toLocaleString("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0});
+const fmtM = (n) => (n/1_000_000).toFixed(2)+"M";
+const pct  = (a,b) => ((a/b)*100).toFixed(1)+"%";
+
+function fv(annual, years=30, rate=0.10) {
+  let total = 0;
+  for (let y = 1; y <= years; y++) total += annual * Math.pow(1+rate, years-y+1);
+  return total;
+}
+
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function AcceleratorPlan() {
+  const [active, setActive] = useState("150");
+  const [tab, setTab]       = useState("overview");
+  const sc = SCENARIOS.find(s => s.id === active);
+  const d  = calc(active);
+
+  return (
+    <div style={{
+      minHeight: "100vh",
+      background: "#0b0c0b",
+      color: "#e4ded3",
+      fontFamily: "'DM Mono','Courier New',monospace",
+      padding: "36px 20px",
+    }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300;1,9..144,600&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0;}
+        .btn{background:none;border:none;cursor:pointer;font-family:inherit;transition:all .2s;}
+        .btn:hover{opacity:.8;}
+        .row:hover{background:rgba(255,255,255,.03)!important;}
+        .card{transition:all .25s;cursor:default;}
+        .card:hover{transform:translateY(-2px);}
+        @keyframes up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+        .fade{animation:up .35s ease forwards;}
+        .sc-btn{border:none;cursor:pointer;font-family:inherit;transition:all .2s;text-align:left;}
+        .sc-btn:hover{filter:brightness(1.1);}
+        .pulse{animation:pulse 2s infinite;}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+      `}</style>
+
+      <div style={{maxWidth:900,margin:"0 auto"}}>
+
+        <div style={{marginBottom:32}}>
+          <div style={{fontSize:9,letterSpacing:5,color:"#5e8a6a",textTransform:"uppercase",marginBottom:8}}>
+            Forgent / MGM · Accelerated Bonus Plan · 2026
+          </div>
+          <h1 style={{
+            fontFamily:"'Fraunces',serif",
+            fontSize:"clamp(30px,5.5vw,52px)",
+            fontWeight:300,
+            lineHeight:1.05,
+            marginBottom:12,
+          }}>
+            The Accelerator<br/>
+            <span style={{fontWeight:700,fontStyle:"italic",color:sc.color}}>Changes Everything.</span>
+          </h1>
+          <div style={{display:"flex",gap:20,flexWrap:"wrap",fontSize:12,color:"#5a6a60"}}>
+            <span>Base: <strong style={{color:"#e4ded3"}}>$95K</strong></span>
+            <span>100% → <strong style={{color:"#c0784a"}}>$23,750</strong> bonus (1×)</span>
+            <span>150% → <strong style={{color:"#c9a84c"}}>$95,000</strong> bonus (4×)</span>
+            <span>200% → <strong style={{color:"#5e8a6a"}}>$142,500</strong> bonus (6×)</span>
+          </div>
+        </div>
+
+        <div style={{
+          display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",
+          gap:10,marginBottom:28,
+        }}>
+          {SCENARIOS.map(s => {
+            const dd = calc(s.id);
+            const isActive = active === s.id;
+            return (
+              <button key={s.id} className="sc-btn"
+                onClick={() => setActive(s.id)}
+                style={{
+                  padding:"18px 20px",
+                  borderRadius:12,
+                  border: isActive ? `1px solid ${s.color}60` : "1px solid rgba(255,255,255,.07)",
+                  background: isActive ? `${s.color}10` : "rgba(255,255,255,.02)",
+                }}>
+                <div style={{fontSize:9,color:isActive?s.color:"#4a5a50",letterSpacing:3,textTransform:"uppercase",marginBottom:6}}>{s.tag}</div>
+                <div style={{fontSize:12,color:isActive?"#e4ded3":"#6a6660",marginBottom:4}}>{s.label}</div>
+                <div style={{fontSize:11,color:"#4a5a50",marginBottom:10}}>
+                  {s.id==="100"?"1×":""}
+                  {s.id==="150"?"4× accelerator":""}
+                  {s.id==="200"?"6× accelerator":""}
+                  {" "}· {fmt(dd.bonusGross)} gross
+                </div>
+                <div style={{fontSize:9,color:"#4a5a50",letterSpacing:2,textTransform:"uppercase",marginBottom:4}}>Total OTE</div>
+                <div style={{fontSize:24,fontWeight:700,color:isActive?s.color:"#5a5a5a",letterSpacing:-0.5}}>{fmt(dd.totalGross)}</div>
+                <div style={{display:"flex",justifyContent:"space-between",marginTop:12,paddingTop:10,borderTop:`1px solid ${s.color}20`}}>
+                  <div>
+                    <div style={{fontSize:9,color:"#4a5a50",letterSpacing:1,marginBottom:3}}>→ BROKERAGE</div>
+                    <div style={{fontSize:16,fontWeight:600,color:dd.brokerage>0?s.color:"#c0504d"}}>
+                      {dd.brokerage > 0 ? fmt(dd.brokerage) : "❌"}
+                    </div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:9,color:"#4a5a50",letterSpacing:1,marginBottom:3}}>SAVINGS RATE</div>
+                    <div style={{fontSize:16,fontWeight:600,color:s.color}}>{dd.savingsRate}%</div>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{display:"flex",gap:2,borderBottom:"1px solid rgba(255,255,255,.07)",marginBottom:24}}>
+          {[["overview","Overview"],["waterfall","Bonus Waterfall"],["projection","Wealth Projection"],["compare","All Scenarios"]].map(([id,label])=>(
+            <button key={id} className="btn"
+              onClick={()=>setTab(id)}
+              style={{
+                padding:"9px 14px",fontSize:10,letterSpacing:2,textTransform:"uppercase",
+                color:tab===id?sc.color:"#4a5a50",
+                borderBottom:tab===id?`2px solid ${sc.color}`:"2px solid transparent",
+                marginBottom:-1,
+              }}>{label}</button>
+          ))}
+        </div>
+
+        {tab==="overview" && (
+          <div className="fade">
+            <div style={{marginBottom:24}}>
+              <div style={{fontSize:9,letterSpacing:3,color:"#4a5a50",textTransform:"uppercase",marginBottom:12}}>
+                ${(d.totalGross/1000).toFixed(0)}K Gross · How It Splits
+              </div>
+              <div style={{height:14,borderRadius:7,overflow:"hidden",display:"flex",transition:"all .5s"}}>
+                {[
+                  {w:(d.totalTax/d.totalGross)*100,       color:"#7a3030"},
+                  {w:(d.annualSpendable/d.totalGross)*100, color:"#2a4a7a"},
+                  {w:(ROTH_401K_ANNUAL/d.totalGross)*100,  color:"#c9a84c"},
+                  {w:(BACKDOOR_IRA/d.totalGross)*100,      color:"#7ba0d9"},
+                  {w:(Math.max(0,d.brokerage)/d.totalGross)*100, color:sc.color},
+                ].map((s,i)=>(
+                  <div key={i} style={{width:`${s.w}%`,background:s.color,transition:"width .6s ease"}}/>
+                ))}
+              </div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:"8px 20px",marginTop:10}}>
+                {[
+                  {label:"Taxes",     color:"#7a3030", val:d.totalTax},
+                  {label:"Lifestyle", color:"#2a4a7a", val:d.annualSpendable},
+                  {label:"Roth 401k",color:"#c9a84c",  val:ROTH_401K_ANNUAL},
+                  {label:"Roth IRA",  color:"#7ba0d9", val:BACKDOOR_IRA},
+                  {label:"Brokerage",color:sc.color,   val:Math.max(0,d.brokerage)},
+                ].map(item=>(
+                  <div key={item.label} style={{display:"flex",alignItems:"center",gap:7,fontSize:10,color:"#6a7a70"}}>
+                    <div style={{width:8,height:8,background:item.color,borderRadius:2,flexShrink:0}}/>
+                    {item.label} — {fmt(item.val)} <span style={{color:"#3a4a40"}}>({pct(item.val,d.totalGross)})</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(145px,1fr))",gap:10,marginBottom:24}}>
+              {[
+                {label:"Total OTE",        val:fmt(d.totalGross),       color:"#e4ded3",  sub:"gross"},
+                {label:"Bonus Multiplier", val:`${d.mult}×`,            color:sc.color,   sub:`${fmt(d.bonusGross)} gross`},
+                {label:"After-Tax OTE",    val:fmt(d.totalGross-d.totalTax), color:"#e4ded3", sub:"spendable + investable"},
+                {label:"Total Into Roth",  val:fmt(d.totalRoth),        color:"#c9a84c",  sub:"401k + IRA"},
+                {label:"→ Brokerage",     val:fmt(Math.max(0,d.brokerage)), color:sc.color, sub:"year-end deployment"},
+                {label:"Total Invested",   val:fmt(d.totalInvested),    color:"#e4ded3",  sub:`${d.savingsRate}% savings rate`},
+              ].map(k=>(
+                <div key={k.label} className="card" style={{
+                  background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",
+                  borderRadius:10,padding:"14px 16px",
+                }}>
+                  <div style={{fontSize:9,letterSpacing:2,color:"#4a5a50",textTransform:"uppercase",marginBottom:8}}>{k.label}</div>
+                  <div style={{fontSize:"clamp(15px,2.3vw,21px)",fontWeight:600,color:k.color}}>{k.val}</div>
+                  <div style={{fontSize:9,color:"#3a4a40",marginTop:4}}>{k.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <div style={{border:"1px solid rgba(255,255,255,.07)",borderRadius:12,padding:20,background:"rgba(255,255,255,.02)"}}>
+                <div style={{fontSize:9,letterSpacing:3,color:"#4a5a50",textTransform:"uppercase",marginBottom:16}}>
+                  Monthly Base Paycheck · Every Month
+                </div>
+                {[
+                  {label:"Gross",        val:fmt(Math.round(BASE_MONTHLY)), sign:"",  color:"#e4ded3"},
+                  {label:"Taxes",        val:fmt(BASE_TAX_MONTHLY),         sign:"−", color:"#7a3030"},
+                  {label:"Roth 401(k)",  val:fmt(ROTH_401K_MONTHLY),        sign:"−", color:"#c9a84c"},
+                  {label:"Take-Home",    val:fmt(BASE_NET_MONTHLY),         sign:"=", color:"#5e8a6a", bold:true},
+                  {label:"Budget",       val:fmt(BUDGET),                   sign:"−", color:"#2a4a7a"},
+                  {label:"Remaining",    val:"$0",                          sign:"=", color:"#3a4a3a", bold:true},
+                ].map(row=>(
+                  <div key={row.label} style={{
+                    display:"flex",justifyContent:"space-between",padding:"7px 0",
+                    borderTop:row.bold?"1px solid rgba(255,255,255,.07)":"none",
+                    marginTop:row.bold?4:0,
+                  }}>
+                    <span style={{fontSize:11,color:row.bold?"#b0b0b0":"#5a6a60"}}>{row.sign} {row.label}</span>
+                    <span style={{fontSize:13,fontWeight:row.bold?700:400,color:row.color}}>{row.sign==="−"?"-":""}{row.val}</span>
+                  </div>
+                ))}
+                <div style={{marginTop:14,padding:"10px 12px",background:"rgba(94,185,120,.05)",borderRadius:7,fontSize:10,color:"#4a6050",lineHeight:1.8}}>
+                  Identical every scenario. Base = life. No lifestyle risk from variable income.
+                </div>
+              </div>
+
+              <div style={{border:`1px solid ${sc.color}25`,borderRadius:12,padding:20,background:`${sc.color}05`}}>
+                <div style={{fontSize:9,letterSpacing:3,color:sc.color,textTransform:"uppercase",marginBottom:16}}>
+                  Year-End Bonus · {sc.label}
+                </div>
+                {[
+                  {label:"Bonus Gross",        val:fmt(d.bonusGross),              sign:"",  color:"#e4ded3"},
+                  {label:"Tax (41% suppl.)",   val:fmt(d.bonusTax),               sign:"−", color:"#7a3030"},
+                  {label:"Bonus Net",          val:fmt(d.bonusNet),               sign:"=", color:"#e4ded3", bold:true},
+                  {label:"Backdoor Roth IRA",  val:fmt(BACKDOOR_IRA),             sign:"−", color:"#7ba0d9"},
+                  {label:"→ Brokerage",       val:fmt(Math.max(0,d.brokerage)),  sign:"=", color:sc.color,  bold:true},
+                ].map(row=>(
+                  <div key={row.label} style={{
+                    display:"flex",justifyContent:"space-between",padding:"7px 0",
+                    borderTop:row.bold?"1px solid rgba(255,255,255,.07)":"none",
+                    marginTop:row.bold?4:0,
+                  }}>
+                    <span style={{fontSize:11,color:row.bold?"#b0b0b0":"#5a6a60"}}>{row.sign} {row.label}</span>
+                    <span style={{fontSize:row.bold?16:13,fontWeight:row.bold?700:400,color:row.color}}>{row.sign==="−"?"-":""}{row.val}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab==="waterfall" && (
+          <div className="fade">
+            <div style={{fontSize:9,letterSpacing:3,color:"#4a5a50",textTransform:"uppercase",marginBottom:20}}>
+              Year-End Sequence · {sc.label} · {fmt(d.bonusGross)} Gross
+            </div>
+            {[
+              {step:"01",title:"Bonus Lands",gross:fmt(d.bonusGross),sub:`${sc.id==="100"?"1× (standard)":sc.id==="150"?"4× accelerator — team hit 150% of target":"6× accelerator — team hit 200% of target"}`,color:sc.color,remaining:d.bonusGross},
+              {step:"02",title:"Supplemental Tax Withheld",gross:fmt(d.bonusTax),sub:"22% federal + 6.2% SS + 1.45% Medicare + 10.23% CA + 1.1% SDI",color:"#7a3030",remaining:d.bonusNet},
+              {step:"03",title:"Fund Backdoor Roth IRA",gross:fmt(BACKDOOR_IRA),sub:"Contribute to traditional IRA → convert to Roth same day. Fidelity/Schwab.",color:"#7ba0d9",remaining:d.afterIRA},
+              {step:"04",title:"Wire to Robinhood Gold",gross:fmt(Math.max(0,d.brokerage)),sub:"Deploy into IBIT position / wheel collateral / SPX spread margin.",color:sc.color,remaining:0,final:true},
+            ].map((row,i) => (
+              <div key={row.step} style={{display:"flex",gap:0,marginBottom:0}}>
+                <div style={{display:"flex",flexDirection:"column",alignItems:"center",marginRight:16}}>
+                  <div style={{width:32,height:32,borderRadius:"50%",background:`${row.color}20`,border:`1px solid ${row.color}50`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:row.color,fontWeight:700,flexShrink:0}}>{row.step}</div>
+                  {i < 3 && <div style={{width:1,height:32,background:"rgba(255,255,255,.08)"}}/>}
+                </div>
+                <div style={{flex:1,border:`1px solid ${row.color}25`,borderRadius:10,padding:18,background:`${row.color}06`,marginBottom:8}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:600,color:"#b0b8b0",marginBottom:4}}>{row.title}</div>
+                      <div style={{fontSize:10,color:"#4a5a50",lineHeight:1.7,maxWidth:480}}>{row.sub}</div>
+                    </div>
+                    <div style={{textAlign:"right",flexShrink:0,marginLeft:16}}>
+                      <div style={{fontSize:row.final?22:16,fontWeight:700,color:row.color}}>{row.final?"→ ":row.step==="01"?"":"−"}{row.gross}</div>
+                      {!row.final && <div style={{fontSize:10,color:"#4a5a50",marginTop:4}}>Remaining: {fmt(row.remaining)}</div>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            <div style={{marginTop:20,border:"1px solid rgba(255,255,255,.07)",borderRadius:12,padding:20,background:"rgba(255,255,255,.02)"}}>
+              <div style={{fontSize:9,letterSpacing:3,color:"#4a5a50",textTransform:"uppercase",marginBottom:14}}>Day-Of Action Checklist</div>
+              {[
+                "Log into Fidelity or Schwab → contribute $7,500 to Traditional IRA",
+                "Wait for funds to settle (1–2 days) → convert entire balance to Roth",
+                "Confirm no other pre-tax IRA balances exist (pro-rata rule)",
+                `Wire ${fmt(Math.max(0,d.brokerage))} to Robinhood Gold`,
+                "Allocate to IBIT position / wheel collateral or whatever the thesis calls for",
+                "Update Notion Personal OS with deployment notes",
+              ].map((item,i) => (
+                <div key={i} style={{display:"flex",gap:12,alignItems:"flex-start",padding:"8px 0",borderBottom:i<5?"1px solid rgba(255,255,255,.04)":"none"}}>
+                  <div style={{width:18,height:18,borderRadius:3,border:"1px solid rgba(255,255,255,.15)",flexShrink:0,marginTop:1}}/>
+                  <span style={{fontSize:11,color:"#7a8a80",lineHeight:1.7}}>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {tab==="projection" && (
+          <div className="fade">
+            <div style={{fontSize:9,letterSpacing:3,color:"#4a5a50",textTransform:"uppercase",marginBottom:6}}>
+              30-Year Projection · 10% Annual Return Assumption
+            </div>
+            <div style={{fontSize:10,color:"#3a4a40",marginBottom:20,lineHeight:1.8}}>
+              If you invest consistently at current levels. Roth accounts grow tax-free.
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:12,marginBottom:24}}>
+              {[
+                {label:"Roth 401(k) only",  annual:ROTH_401K_ANNUAL, color:"#c9a84c",  type:"Tax-free"},
+                {label:"Roth IRA only",     annual:BACKDOOR_IRA,     color:"#7ba0d9",  type:"Tax-free"},
+                {label:"Brokerage ("+sc.tag+")", annual:Math.max(0,d.brokerage), color:sc.color, type:"Taxable"},
+                {label:"All accounts combined", annual:d.totalInvested, color:"#e4ded3", type:"Blended"},
+              ].map(item => {
+                const fv30 = Math.round(fv(item.annual, 30));
+                const fv20 = Math.round(fv(item.annual, 20));
+                const fv10 = Math.round(fv(item.annual, 10));
+                return (
+                  <div key={item.label} className="card" style={{border:`1px solid ${item.color}25`,borderRadius:12,padding:18,background:`${item.color}06`}}>
+                    <div style={{fontSize:9,color:item.color,letterSpacing:2,textTransform:"uppercase",marginBottom:5}}>{item.type}</div>
+                    <div style={{fontSize:12,color:"#8a9a90",marginBottom:12,lineHeight:1.5}}>{item.label}</div>
+                    <div style={{fontSize:10,color:"#4a5a50",marginBottom:4}}>Annual: {fmt(item.annual)}</div>
+                    <div style={{height:1,background:"rgba(255,255,255,.07)",margin:"10px 0"}}/>
+                    {[{y:10,v:fv10},{y:20,v:fv20},{y:30,v:fv30}].map(row=>(
+                      <div key={row.y} style={{display:"flex",justifyContent:"space-between",padding:"5px 0"}}>
+                        <span style={{fontSize:10,color:"#4a5a50"}}>{row.y}yr</span>
+                        <span style={{fontSize:13,fontWeight:row.y===30?700:400,color:row.y===30?item.color:"#8a9a90"}}>
+                          {row.v>1_000_000?fmtM(row.v):fmt(row.v)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{border:"1px solid rgba(255,255,255,.07)",borderRadius:12,overflow:"hidden"}}>
+              <div style={{display:"grid",gridTemplateColumns:"1.5fr repeat(3,1fr)",padding:"11px 18px",background:"rgba(255,255,255,.03)",borderBottom:"1px solid rgba(255,255,255,.07)",fontSize:9,letterSpacing:2,color:"#4a5a50",textTransform:"uppercase"}}>
+                <div>Scenario</div>
+                <div style={{textAlign:"right"}}>Annual Invested</div>
+                <div style={{textAlign:"right"}}>20-Year Value</div>
+                <div style={{textAlign:"right"}}>30-Year Value</div>
+              </div>
+              {SCENARIOS.map((s,i) => {
+                const dd = calc(s.id);
+                return (
+                  <div key={s.id} className="row" style={{display:"grid",gridTemplateColumns:"1.5fr repeat(3,1fr)",padding:"14px 18px",borderBottom:i<2?"1px solid rgba(255,255,255,.04)":"none",background:active===s.id?`${s.color}08`:undefined,transition:"background .15s"}}>
+                    <div>
+                      <div style={{fontSize:12,fontWeight:500,color:s.color}}>{s.label}</div>
+                      <div style={{fontSize:9,color:"#4a5a50",marginTop:2}}>OTE {fmt(dd.totalGross)}</div>
+                    </div>
+                    <div style={{textAlign:"right",fontSize:13,color:"#9a9690"}}>{fmt(dd.totalInvested)}</div>
+                    <div style={{textAlign:"right",fontSize:13,color:"#9a9690"}}>{fmtM(fv(dd.totalInvested,20))}</div>
+                    <div style={{textAlign:"right",fontSize:18,fontWeight:700,color:s.color}}>{fmtM(fv(dd.totalInvested,30))}</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{marginTop:12,fontSize:10,color:"#2a3a2e",lineHeight:1.8}}>
+              Projection assumes constant annual investment, 10% average annual return, no inflation adjustment.
+            </div>
+          </div>
+        )}
+
+        {tab==="compare" && (
+          <div className="fade">
+            <div style={{fontSize:9,letterSpacing:3,color:"#4a5a50",textTransform:"uppercase",marginBottom:20}}>
+              Side-by-Side · All Three Quota Outcomes
+            </div>
+            <div style={{border:"1px solid rgba(255,255,255,.07)",borderRadius:12,overflow:"hidden",marginBottom:20}}>
+              <div style={{display:"grid",gridTemplateColumns:"1.6fr repeat(3,1fr)",padding:"11px 18px",background:"rgba(255,255,255,.03)",borderBottom:"1px solid rgba(255,255,255,.07)",fontSize:9,letterSpacing:2,color:"#4a5a50",textTransform:"uppercase"}}>
+                <div></div>
+                {SCENARIOS.map(s=>(<div key={s.id} style={{textAlign:"right",color:s.color}}>{s.tag}</div>))}
+              </div>
+              {[
+                {label:"Bonus Multiplier",  fn: d => `${d.mult}×`,               bold:false},
+                {label:"Bonus Gross",       fn: d => fmt(d.bonusGross),          bold:false},
+                {label:"Bonus After Tax",   fn: d => fmt(d.bonusNet),            bold:false},
+                {label:"Total OTE (Gross)", fn: d => fmt(d.totalGross),          bold:true},
+                {label:"Total Taxes",       fn: d => fmt(d.totalTax),            bold:false, color:"#7a3030"},
+                {label:"Lifestyle/yr",      fn: _ => fmt(BUDGET*12),             bold:false, color:"#2a4a7a"},
+                {label:"Roth 401(k)",       fn: _ => fmt(ROTH_401K_ANNUAL),      bold:false, color:"#c9a84c"},
+                {label:"Backdoor IRA",      fn: _ => fmt(BACKDOOR_IRA),          bold:false, color:"#7ba0d9"},
+                {label:"→ Brokerage",      fn: d => fmt(Math.max(0,d.brokerage)),bold:true},
+                {label:"Total Invested",    fn: d => fmt(d.totalInvested),       bold:true},
+                {label:"Savings Rate",      fn: d => d.savingsRate+"%",          bold:false},
+              ].map((row,i) => (
+                <div key={row.label} style={{display:"grid",gridTemplateColumns:"1.6fr repeat(3,1fr)",padding:"13px 18px",borderBottom:i<10?"1px solid rgba(255,255,255,.04)":"none",background:row.bold?"rgba(255,255,255,.03)":i%2===0?"rgba(255,255,255,.01)":undefined}}>
+                  <div style={{fontSize:row.bold?12:11,color:row.bold?"#b0b8b0":"#5a6a60",fontWeight:row.bold?600:400}}>{row.label}</div>
+                  {SCENARIOS.map(s => {
+                    const dd = calc(s.id);
+                    return (<div key={s.id} style={{textAlign:"right",fontSize:row.bold?15:13,fontWeight:row.bold?700:400,color:row.color||(active===s.id?s.color:"#6a7a70")}}>{row.fn(dd)}</div>);
+                  })}
+                </div>
+              ))}
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+              {[
+                {id:"100",title:"Floor — still solid",body:`At base quota you're at ${fmt(calc("100").totalGross)} OTE. The plan works, Roth accounts funded, ${fmt(calc("100").brokerage)} into brokerage.`},
+                {id:"150",title:"Base case — the thesis",body:`4× accelerator kicks in. ${fmt(calc("150").bonusGross)} bonus. ${fmt(calc("150").brokerage)} deployed to brokerage. At $190K OTE you're in meaningful wealth-building territory at 26.`},
+                {id:"200",title:"Stretch — life-changing",body:`6× accelerator = ${fmt(calc("200").bonusGross)} bonus. ${fmt(calc("200").brokerage)} into your Robinhood Gold account. The team has done this.`},
+              ].map(item => {
+                const s = SCENARIOS.find(x=>x.id===item.id);
+                return (
+                  <div key={item.id} style={{border:`1px solid ${s.color}20`,borderRadius:10,padding:16,background:`${s.color}06`}}>
+                    <div style={{fontSize:9,color:s.color,letterSpacing:2,textTransform:"uppercase",marginBottom:8}}>{SCENARIOS.find(x=>x.id===item.id).tag}</div>
+                    <div style={{fontFamily:"'Fraunces',serif",fontSize:14,fontWeight:600,color:"#c0b8a8",marginBottom:10,lineHeight:1.4}}>{item.title}</div>
+                    <div style={{fontSize:10,color:"#5a6a60",lineHeight:1.9}}>{item.body}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div style={{marginTop:28,fontSize:9,color:"#1e2e22",lineHeight:1.9}}>
+          Estimates only · 2026 tax brackets · single filer · standard deduction · supplemental bonus rate 41% · consult a CPA
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<AcceleratorPlan />);
+</script>
+</body>
+</html>
