@@ -1,0 +1,435 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Forgent Retro 2026 Analysis</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body style="margin:0;padding:0;background:#0c0d0b;">
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+
+const QUOTA_TARGET   = 223_000_000;
+const CURRENT_REV    = 335_000_000;
+const MONTHS_ELAPSED = 9;
+const MONTHS_LEFT    = 3;
+const FISCAL_MONTHS  = 12;
+
+const RUN_RATE_MONTHLY = CURRENT_REV / MONTHS_ELAPSED;
+
+const PROJ_BASE = CURRENT_REV + RUN_RATE_MONTHLY * MONTHS_LEFT;
+const PROJ_SLOW = CURRENT_REV + (RUN_RATE_MONTHLY * 0.75) * MONTHS_LEFT;
+const PROJ_HOT  = CURRENT_REV + (RUN_RATE_MONTHLY * 1.15) * MONTHS_LEFT;
+
+const BASE            = 95_000;
+const BASE_MONTHLY    = BASE / 12;
+const BONUS_AT_100PCT = BASE * 0.25;
+
+function getBonusMult(quotaPct) {
+  if (quotaPct >= 2.00) return 6;
+  if (quotaPct >= 1.50) return 4;
+  return 1;
+}
+
+function getBonusGross(quotaPct) {
+  return Math.round(BONUS_AT_100PCT * getBonusMult(quotaPct));
+}
+
+const SUPP_TAX        = 0.41;
+const BASE_TAX_ANNUAL = 25_808;
+const BASE_TAX_MONTHLY = Math.round(BASE_TAX_ANNUAL / 12);
+const ROTH_401K_MONTHLY = 516;
+const ROTH_401K_ANNUAL  = ROTH_401K_MONTHLY * 12;
+const BACKDOOR_IRA      = 7_500;
+const BUDGET            = 5_250;
+
+function calcComp(projRevenue, prorateMo = 12) {
+  const quotaPct   = projRevenue / QUOTA_TARGET;
+  const mult       = getBonusMult(quotaPct);
+  const bonusGross = getBonusGross(quotaPct);
+  const prorateFrac = prorateMo / 12;
+  const bonusGrossPro = Math.round(bonusGross * prorateFrac);
+  const bonusTax   = Math.round(bonusGrossPro * SUPP_TAX);
+  const bonusNet   = bonusGrossPro - bonusTax;
+  const baseGross  = Math.round(BASE * prorateFrac);
+  const baseTax    = Math.round(BASE_TAX_ANNUAL * prorateFrac);
+  const baseNet    = baseGross - baseTax - Math.round(ROTH_401K_ANNUAL * prorateFrac);
+  const totalGross = baseGross + bonusGrossPro;
+  const totalTax   = baseTax + bonusTax;
+  const ira        = Math.round(BACKDOOR_IRA * prorateFrac);
+  const brokerage  = bonusNet - ira;
+  const totalInvested = Math.round(ROTH_401K_ANNUAL * prorateFrac) + ira + Math.max(0, brokerage);
+  return {
+    quotaPct, mult, bonusGross, bonusGrossPro, bonusTax, bonusNet,
+    baseGross, baseTax, baseNet, totalGross, totalTax, ira, brokerage,
+    totalInvested, prorateFrac,
+  };
+}
+
+const THRESHOLD_150 = QUOTA_TARGET * 1.5;
+const THRESHOLD_200 = QUOTA_TARGET * 2.0;
+
+const fmtM = (n) => "$" + (n / 1_000_000).toFixed(1) + "M";
+const fmt  = (n) => n.toLocaleString("en-US", {style:"currency",currency:"USD",maximumFractionDigits:0});
+const pct  = (n) => (n * 100).toFixed(1) + "%";
+
+const REV_SCENARIOS = [
+  { id:"slow", label:"Slower Finish",  rev:PROJ_SLOW, color:"#c0784a", note:"75% of current run rate" },
+  { id:"pace", label:"Current Pace",   rev:PROJ_BASE, color:"#c9a84c", note:"Run rate maintained" },
+  { id:"hot",  label:"Strong Finish",  rev:PROJ_HOT,  color:"#5e8a6a", note:"115% of run rate" },
+];
+
+const MONTHS_ARR = ["Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar","Apr","May","Jun","Jul"];
+
+function FiscalYearAnalysis() {
+  const [activeRev, setActiveRev] = useState("pace");
+  const [tab, setTab]             = useState("overview");
+  const [proMode, setProMode]     = useState("full");
+
+  const revSc  = REV_SCENARIOS.find(s => s.id === activeRev);
+  const promo  = proMode === "full" ? 12 : 3;
+  const d      = calcComp(revSc.rev, promo);
+
+  const progressPct   = Math.min((CURRENT_REV / THRESHOLD_200) * 100, 100);
+  const thresh150Pct  = (THRESHOLD_150 / THRESHOLD_200) * 100;
+
+  return (
+    <div style={{minHeight:"100vh",background:"#0c0d0b",color:"#e4ded3",fontFamily:"'DM Mono','Courier New',monospace",padding:"36px 20px"}}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,400&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0;}
+        .btn{background:none;border:none;cursor:pointer;font-family:inherit;transition:all .2s;}
+        .btn:hover{opacity:.8;}
+        .row:hover{background:rgba(255,255,255,.03)!important;}
+        .sc-btn{border:none;cursor:pointer;font-family:inherit;transition:all .2s;text-align:left;}
+        .sc-btn:hover{filter:brightness(1.1);}
+        @keyframes up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+        .fade{animation:up .35s ease forwards;}
+        .toggle-btn{background:none;border:none;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:2px;text-transform:uppercase;padding:7px 14px;border-radius:6px;transition:all .2s;}
+      `}</style>
+
+      <div style={{maxWidth:900,margin:"0 auto"}}>
+
+        {/* Header */}
+        <div style={{marginBottom:28}}>
+          <div style={{fontSize:9,letterSpacing:5,color:"#5e8a6a",textTransform:"uppercase",marginBottom:8}}>
+            Forgent / MGM · FY Retroactive Analysis · Aug 2025 – Jul 2026
+          </div>
+          <h1 style={{fontFamily:"'Fraunces',serif",fontSize:"clamp(28px,5vw,48px)",fontWeight:300,lineHeight:1.05,marginBottom:10}}>
+            If You Were There<br/>
+            <span style={{fontWeight:700,fontStyle:"italic",color:revSc.color}}>All Year.</span>
+          </h1>
+          <p style={{fontSize:11,color:"#4a5a50",lineHeight:1.9}}>
+            FY target: {fmtM(QUOTA_TARGET)} · Current: {fmtM(CURRENT_REV)} ({pct(CURRENT_REV/QUOTA_TARGET)} of quota) · 3 months remaining
+          </p>
+        </div>
+
+        {/* Revenue gauge */}
+        <div style={{border:"1px solid rgba(255,255,255,.07)",borderRadius:12,padding:20,marginBottom:24,background:"rgba(255,255,255,.02)"}}>
+          <div style={{fontSize:9,letterSpacing:3,color:"#4a5a50",textTransform:"uppercase",marginBottom:14}}>
+            Revenue Progress → {fmtM(THRESHOLD_200)} to unlock 6× Bonus
+          </div>
+          <div style={{position:"relative",height:28,borderRadius:8,background:"rgba(255,255,255,.06)",overflow:"hidden",marginBottom:10}}>
+            <div style={{position:"absolute",left:`${thresh150Pct}%`,top:0,bottom:0,width:2,background:"rgba(201,168,76,.6)",zIndex:2}}/>
+            <div style={{position:"absolute",left:0,top:0,bottom:0,width:`${progressPct}%`,background:"linear-gradient(90deg,#3a5a3a,#5e8a6a)",borderRadius:8,transition:"width .8s ease"}}/>
+            <div style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",fontSize:11,fontWeight:600,color:"#e4ded3",zIndex:3}}>
+              {fmtM(CURRENT_REV)} now
+            </div>
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",position:"relative",marginBottom:16}}>
+            <div style={{fontSize:9,color:"#4a5a50"}}>$0</div>
+            <div style={{position:"absolute",left:`${thresh150Pct}%`,transform:"translateX(-50%)",fontSize:9,color:"#c9a84c",textAlign:"center"}}>
+              <div style={{marginBottom:2}}>▲</div>
+              <div>150% · {fmtM(THRESHOLD_150)}</div>
+              <div style={{color:"#3a5a30"}}>4× bonus</div>
+            </div>
+            <div style={{fontSize:9,color:"#4a5a50"}}>{fmtM(THRESHOLD_200)} · 200%</div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10}}>
+            {[
+              {label:"Currently at",     val:pct(CURRENT_REV/QUOTA_TARGET), color:"#5e8a6a", note:"of quota target"},
+              {label:"Run rate / month", val:fmtM(RUN_RATE_MONTHLY),        color:"#e4ded3", note:"trailing avg"},
+              {label:"Projected YE",     val:fmtM(PROJ_BASE),               color:revSc.color,note:"at current pace"},
+              {label:"Gap to 200%",      val:fmtM(Math.max(0,THRESHOLD_200-CURRENT_REV)), color:"#c9a84c", note:`need in ${MONTHS_LEFT} months`},
+            ].map(k=>(
+              <div key={k.label} style={{background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",borderRadius:8,padding:"12px 14px"}}>
+                <div style={{fontSize:9,color:"#4a5a50",letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>{k.label}</div>
+                <div style={{fontSize:18,fontWeight:700,color:k.color}}>{k.val}</div>
+                <div style={{fontSize:9,color:"#3a4a40",marginTop:3}}>{k.note}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{marginTop:14,padding:"12px 16px",background:"rgba(94,185,120,.07)",border:"1px solid rgba(94,185,120,.2)",borderRadius:8,fontSize:11,color:"#5e8a6a",lineHeight:1.8}}>
+            🎯 <strong>They're already past the 150% threshold.</strong> At current run rate ({fmtM(RUN_RATE_MONTHLY)}/mo × 3 months = {fmtM(RUN_RATE_MONTHLY*3)} more), year-end lands at <strong>{fmtM(PROJ_BASE)} ≈ {pct(PROJ_BASE/QUOTA_TARGET)}</strong> — essentially exactly 200%. The 6× bonus is in play.
+          </div>
+        </div>
+
+        {/* Revenue scenario selector */}
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:9,letterSpacing:3,color:"#4a5a50",textTransform:"uppercase",marginBottom:12}}>Project Final Revenue Scenario</div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            {REV_SCENARIOS.map(s => {
+              const dd = calcComp(s.rev, 12);
+              const isActive = activeRev === s.id;
+              return (
+                <button key={s.id} className="sc-btn"
+                  onClick={()=>setActiveRev(s.id)}
+                  style={{padding:"12px 16px",borderRadius:10,flex:1,minWidth:150,border:isActive?`1px solid ${s.color}60`:"1px solid rgba(255,255,255,.07)",background:isActive?`${s.color}10`:"rgba(255,255,255,.02)"}}>
+                  <div style={{fontSize:9,color:isActive?s.color:"#4a5a50",letterSpacing:2,textTransform:"uppercase",marginBottom:4}}>{dd.mult}× bonus</div>
+                  <div style={{fontSize:12,color:isActive?"#e4ded3":"#6a6660",marginBottom:4}}>{s.label}</div>
+                  <div style={{fontSize:10,color:"#4a5a50",marginBottom:8}}>{fmtM(s.rev)} · {pct(s.rev/QUOTA_TARGET)}</div>
+                  <div style={{fontSize:9,color:"#4a5a50",letterSpacing:1,marginBottom:3}}>FULL YEAR BONUS</div>
+                  <div style={{fontSize:20,fontWeight:700,color:isActive?s.color:"#5a5a5a"}}>{fmt(dd.bonusGross)}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Prorated toggle */}
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,padding:"12px 16px",background:"rgba(255,255,255,.02)",border:"1px solid rgba(255,255,255,.07)",borderRadius:10}}>
+          <div style={{fontSize:10,color:"#6a7a70",flex:1}}>
+            <strong style={{color:"#b0b8b0"}}>Important:</strong> You're joining with 3 months left. Would your bonus be prorated?
+            <div style={{fontSize:9,color:"#4a5a50",marginTop:2}}>Most companies prorate new hires' first-year bonus. Worth confirming with HR.</div>
+          </div>
+          <div style={{display:"flex",gap:4}}>
+            {[["full","Full Year"],["prorated","Prorated 3mo"]].map(([id,label])=>(
+              <button key={id} className="toggle-btn"
+                onClick={()=>setProMode(id)}
+                style={{color:proMode===id?"#e4ded3":"#4a5a50",background:proMode===id?"rgba(255,255,255,.08)":"transparent",border:proMode===id?"1px solid rgba(255,255,255,.15)":"1px solid transparent"}}>{label}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div style={{display:"flex",gap:2,borderBottom:"1px solid rgba(255,255,255,.07)",marginBottom:24}}>
+          {[["overview","Earnings Overview"],["waterfall","Bonus Waterfall"],["monthly","Monthly View"],["sensitivity","Sensitivity"]].map(([id,label])=>(
+            <button key={id} className="btn"
+              onClick={()=>setTab(id)}
+              style={{padding:"9px 14px",fontSize:10,letterSpacing:2,textTransform:"uppercase",color:tab===id?revSc.color:"#4a5a50",borderBottom:tab===id?`2px solid ${revSc.color}`:"2px solid transparent",marginBottom:-1}}>{label}</button>
+          ))}
+        </div>
+
+        {/* OVERVIEW */}
+        {tab==="overview" && (
+          <div className="fade">
+            <div style={{fontSize:9,letterSpacing:3,color:"#4a5a50",textTransform:"uppercase",marginBottom:16}}>
+              {proMode==="full"?"Full Fiscal Year · Aug 2025 – Jul 2026":"Prorated · 3 Months Only (May – Jul 2026)"} · {revSc.label}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(145px,1fr))",gap:10,marginBottom:22}}>
+              {[
+                {label:"Bonus Multiplier", val:`${d.mult}×`,                  color:revSc.color},
+                {label:"Bonus Gross",      val:fmt(d.bonusGrossPro),          color:revSc.color},
+                {label:"Bonus After Tax",  val:fmt(d.bonusNet),               color:"#e4ded3"},
+                {label:"Base Gross",       val:fmt(d.baseGross),              color:"#e4ded3"},
+                {label:"Total OTE Gross",  val:fmt(d.totalGross),             color:revSc.color},
+                {label:"Total Take-Home",  val:fmt(d.baseNet + d.bonusNet),   color:"#5e8a6a"},
+              ].map(k=>(
+                <div key={k.label} style={{background:"rgba(255,255,255,.03)",border:"1px solid rgba(255,255,255,.06)",borderRadius:10,padding:"14px 16px"}}>
+                  <div style={{fontSize:9,letterSpacing:2,color:"#4a5a50",textTransform:"uppercase",marginBottom:8}}>{k.label}</div>
+                  <div style={{fontSize:"clamp(14px,2vw,20px)",fontWeight:600,color:k.color}}>{k.val}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:20}}>
+              <div style={{border:"1px solid rgba(255,255,255,.07)",borderRadius:12,padding:20}}>
+                <div style={{fontSize:9,letterSpacing:3,color:"#4a5a50",textTransform:"uppercase",marginBottom:14}}>
+                  Base Salary · {proMode==="full"?"12 months":"3 months"}
+                </div>
+                {[
+                  {label:"Gross",          val:fmt(d.baseGross), sign:"",  color:"#e4ded3"},
+                  {label:"Taxes",          val:fmt(d.baseTax),   sign:"−", color:"#7a3030"},
+                  {label:"Roth 401(k)",    val:fmt(Math.round(ROTH_401K_ANNUAL*d.prorateFrac)), sign:"−", color:"#c9a84c"},
+                  {label:"Base Take-Home", val:fmt(d.baseNet),   sign:"=", color:"#5e8a6a", bold:true},
+                ].map(row=>(
+                  <div key={row.label} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderTop:row.bold?"1px solid rgba(255,255,255,.07)":"none",marginTop:row.bold?4:0}}>
+                    <span style={{fontSize:11,color:row.bold?"#b0b8b0":"#5a6a60"}}>{row.sign} {row.label}</span>
+                    <span style={{fontSize:13,fontWeight:row.bold?700:400,color:row.color}}>{row.sign==="−"?"-":""}{row.val}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{border:`1px solid ${revSc.color}25`,borderRadius:12,padding:20,background:`${revSc.color}05`}}>
+                <div style={{fontSize:9,letterSpacing:3,color:revSc.color,textTransform:"uppercase",marginBottom:14}}>
+                  Year-End Bonus · {d.mult}× · {revSc.label}
+                </div>
+                {[
+                  {label:`Bonus Gross (${d.mult}×)`, val:fmt(d.bonusGrossPro), sign:"",  color:"#e4ded3"},
+                  {label:"Tax (41% suppl.)",          val:fmt(d.bonusTax),      sign:"−", color:"#7a3030"},
+                  {label:"Bonus Net",                 val:fmt(d.bonusNet),      sign:"=", color:"#e4ded3", bold:true},
+                  {label:"Backdoor Roth IRA",         val:fmt(d.ira),           sign:"−", color:"#7ba0d9"},
+                  {label:"→ Brokerage",              val:fmt(Math.max(0,d.brokerage)), sign:"=", color:revSc.color, bold:true},
+                ].map(row=>(
+                  <div key={row.label} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderTop:row.bold?"1px solid rgba(255,255,255,.07)":"none",marginTop:row.bold?4:0}}>
+                    <span style={{fontSize:11,color:row.bold?"#b0b8b0":"#5a6a60"}}>{row.sign} {row.label}</span>
+                    <span style={{fontSize:row.label==="→ Brokerage"?16:13,fontWeight:row.bold?700:400,color:row.color}}>{row.sign==="−"?"-":""}{row.val}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{border:`1px solid ${revSc.color}30`,borderRadius:12,padding:20,background:`${revSc.color}06`}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:16}}>
+                {[
+                  {label:"Total Gross OTE",    val:fmt(d.totalGross),  color:"#e4ded3"},
+                  {label:"Total Taxes Paid",   val:fmt(d.totalTax),    color:"#7a3030"},
+                  {label:"Into Roth Accounts", val:fmt(Math.round(ROTH_401K_ANNUAL*d.prorateFrac)+d.ira), color:"#c9a84c"},
+                  {label:"→ Brokerage",       val:fmt(Math.max(0,d.brokerage)), color:revSc.color},
+                  {label:"Spendable (Life)",   val:fmt(Math.round(BUDGET*12*d.prorateFrac)), color:"#2a4a7a"},
+                  {label:"Total Invested",     val:fmt(d.totalInvested), color:revSc.color},
+                ].map(k=>(
+                  <div key={k.label}>
+                    <div style={{fontSize:9,color:"#4a5a50",letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>{k.label}</div>
+                    <div style={{fontSize:18,fontWeight:700,color:k.color}}>{k.val}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* BONUS WATERFALL */}
+        {tab==="waterfall" && (
+          <div className="fade">
+            <div style={{fontSize:9,letterSpacing:3,color:"#4a5a50",textTransform:"uppercase",marginBottom:20}}>
+              Year-End Bonus Flow · {revSc.label} · {d.mult}× Accelerator
+            </div>
+            {[
+              {n:"01",title:"Company Hits "+pct(revSc.rev/QUOTA_TARGET),amount:fmt(d.bonusGross)+" full-year bonus unlocked",detail:`Target: ${fmtM(QUOTA_TARGET)} · Projected: ${fmtM(revSc.rev)} · Multiplier: ${d.mult}×`,color:revSc.color},
+              {n:"02",title:proMode==="prorated"?"Prorated to 3 Months":"Full Year — You Were There All 12 Months",amount:fmt(d.bonusGrossPro),detail:proMode==="prorated"?"3/12 = 25% of full bonus. Confirm proration policy with HR on day one.":"Full bonus applied — no proration.",color:proMode==="prorated"?"#c9a84c":"#5e8a6a"},
+              {n:"03",title:"Tax Withheld (41%)",amount:"−"+fmt(d.bonusTax),detail:"Supplemental rate: 22% federal + 6.2% SS + 1.45% Medicare + 10.23% CA + 1.1% SDI",color:"#7a3030"},
+              {n:"04",title:"Bonus Net",amount:fmt(d.bonusNet),detail:"What actually hits your account.",color:"#e4ded3"},
+              {n:"05",title:"Backdoor Roth IRA",amount:"−"+fmt(d.ira),detail:"Fund traditional IRA → convert to Roth same day.",color:"#7ba0d9"},
+              {n:"06",title:"→ Taxable Brokerage",amount:fmt(Math.max(0,d.brokerage)),detail:"Wire to Robinhood Gold. IBIT position, wheel collateral, SPX spreads.",color:revSc.color,final:true},
+            ].map((row,i)=>(
+              <div key={row.n} style={{display:"flex",gap:0,marginBottom:0}}>
+                <div style={{display:"flex",flexDirection:"column",alignItems:"center",marginRight:14}}>
+                  <div style={{width:30,height:30,borderRadius:"50%",flexShrink:0,background:`${row.color}18`,border:`1px solid ${row.color}45`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:row.color}}>{row.n}</div>
+                  {i<5&&<div style={{width:1,height:24,background:"rgba(255,255,255,.07)"}}/>}
+                </div>
+                <div style={{flex:1,border:`1px solid ${row.color}20`,borderRadius:10,padding:16,background:row.final?`${row.color}08`:`${row.color}04`,marginBottom:8}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+                    <div>
+                      <div style={{fontSize:12,fontWeight:600,color:"#b0b8b0",marginBottom:4}}>{row.title}</div>
+                      <div style={{fontSize:10,color:"#4a5a50",lineHeight:1.7}}>{row.detail}</div>
+                    </div>
+                    <div style={{fontSize:row.final?20:15,fontWeight:700,color:row.color,flexShrink:0}}>{row.amount}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* MONTHLY VIEW */}
+        {tab==="monthly" && (
+          <div className="fade">
+            <div style={{fontSize:9,letterSpacing:3,color:"#4a5a50",textTransform:"uppercase",marginBottom:14}}>
+              Month-by-Month If You Were There Full Year · {revSc.label}
+            </div>
+            <div style={{border:"1px solid rgba(255,255,255,.07)",borderRadius:12,overflow:"hidden",marginBottom:16}}>
+              <div style={{display:"grid",gridTemplateColumns:"1.4fr 1fr 1fr 1fr",padding:"11px 18px",background:"rgba(255,255,255,.03)",borderBottom:"1px solid rgba(255,255,255,.07)",fontSize:9,letterSpacing:2,color:"#4a5a50",textTransform:"uppercase"}}>
+                <div>Month</div>
+                <div style={{textAlign:"right"}}>Paycheck</div>
+                <div style={{textAlign:"right"}}>Budget</div>
+                <div style={{textAlign:"right"}}>Invested</div>
+              </div>
+              {MONTHS_ARR.map((m,i)=>{
+                const isLast = i === 11;
+                const isCurr = i >= 9;
+                return (
+                  <div key={m} className="row" style={{display:"grid",gridTemplateColumns:"1.4fr 1fr 1fr 1fr",padding:"12px 18px",borderBottom:i<11?"1px solid rgba(255,255,255,.04)":"none",background:isLast?`${revSc.color}08`:isCurr?"rgba(94,185,120,.03)":undefined,transition:"background .15s"}}>
+                    <div>
+                      <span style={{fontSize:13,fontWeight:500}}>{m}</span>
+                      <span style={{fontSize:9,color:isCurr?"#5e8a6a":"#4a5a50",marginLeft:8}}>
+                        {isLast?"BONUS ARRIVES":isCurr?"← you join here":"FY"+(i<5?"26":"25")}
+                      </span>
+                    </div>
+                    <div style={{textAlign:"right",fontSize:13,color:"#8a9a8a"}}>{fmt(BASE_NET_MONTHLY+ROTH_401K_MONTHLY+BASE_TAX_MONTHLY)}</div>
+                    <div style={{textAlign:"right",fontSize:13,color:"#2a4a7a"}}>{fmt(BUDGET)}</div>
+                    <div style={{textAlign:"right",fontSize:isLast?11:13,color:isLast?revSc.color:"#c9a84c",fontWeight:isLast?700:400}}>
+                      {isLast?`${fmt(ROTH_401K_MONTHLY)} + ${fmt(d.ira)} + ${fmt(Math.max(0,d.brokerage))}`:fmt(ROTH_401K_MONTHLY)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{padding:"12px 16px",background:"rgba(94,185,120,.05)",border:"1px solid rgba(94,185,120,.15)",borderRadius:8,fontSize:11,color:"#4a6050",lineHeight:1.8}}>
+              Months highlighted in green (May–Jul) are the 3 months you'll actually be there. The bonus still accrues based on the full-year company performance — the question is just whether it gets prorated to your tenure.
+            </div>
+          </div>
+        )}
+
+        {/* SENSITIVITY */}
+        {tab==="sensitivity" && (
+          <div className="fade">
+            <div style={{fontSize:9,letterSpacing:3,color:"#4a5a50",textTransform:"uppercase",marginBottom:16}}>
+              Revenue → Bonus Outcome · What Each Scenario Means For You
+            </div>
+            <div style={{border:"1px solid rgba(255,255,255,.07)",borderRadius:12,overflow:"hidden",marginBottom:20}}>
+              <div style={{display:"grid",gridTemplateColumns:"1.2fr 0.8fr 0.8fr 1fr 1fr 1fr",padding:"11px 18px",background:"rgba(255,255,255,.03)",borderBottom:"1px solid rgba(255,255,255,.07)",fontSize:9,letterSpacing:2,color:"#4a5a50",textTransform:"uppercase"}}>
+                <div>Year-End Rev</div>
+                <div style={{textAlign:"right"}}>% Quota</div>
+                <div style={{textAlign:"right"}}>Mult</div>
+                <div style={{textAlign:"right"}}>Bonus Gross</div>
+                <div style={{textAlign:"right"}}>Bonus Net</div>
+                <div style={{textAlign:"right"}}>→ Brokerage</div>
+              </div>
+              {[
+                {rev:335_000_000, note:"If stopped today"},
+                {rev:380_000_000, note:"Modest finish"},
+                {rev:PROJ_SLOW,   note:"Slow finish (75% pace)"},
+                {rev:QUOTA_TARGET*1.90, note:"190% — just under 200%"},
+                {rev:THRESHOLD_200-1_000_000, note:"Just below 200%"},
+                {rev:PROJ_BASE,   note:"Current pace ← likely"},
+                {rev:PROJ_HOT,    note:"Strong finish"},
+              ].filter(r => r.rev > 300_000_000 && r.rev <= 480_000_000)
+               .sort((a,b)=>a.rev-b.rev)
+               .map((row,i)=>{
+                const dd = calcComp(row.rev, proMode==="prorated"?3:12);
+                const isLikely = Math.abs(row.rev - PROJ_BASE) < 5_000_000;
+                const isCurrent = row.rev === 335_000_000;
+                return (
+                  <div key={i} className="row" style={{display:"grid",gridTemplateColumns:"1.2fr 0.8fr 0.8fr 1fr 1fr 1fr",padding:"12px 18px",borderBottom:i<6?"1px solid rgba(255,255,255,.04)":"none",background:isLikely?`${revSc.color}08`:isCurrent?"rgba(94,185,120,.04)":undefined,transition:"background .15s"}}>
+                    <div>
+                      <span style={{fontSize:12,fontWeight:isLikely?600:400,color:isLikely?revSc.color:"#b0b8b0"}}>{fmtM(row.rev)}</span>
+                      {row.note&&<div style={{fontSize:9,color:"#4a5a50"}}>{row.note}{isLikely?" ← projected":""}</div>}
+                    </div>
+                    <div style={{textAlign:"right",fontSize:12,color:"#6a7a70"}}>{pct(row.rev/QUOTA_TARGET)}</div>
+                    <div style={{textAlign:"right",fontSize:13,fontWeight:600,color:dd.mult===6?"#5e8a6a":dd.mult===4?"#c9a84c":"#c0784a"}}>{dd.mult}×</div>
+                    <div style={{textAlign:"right",fontSize:12,color:"#9a9690"}}>{fmt(dd.bonusGrossPro)}</div>
+                    <div style={{textAlign:"right",fontSize:12,color:"#9a9690"}}>{fmt(dd.bonusNet)}</div>
+                    <div style={{textAlign:"right",fontSize:13,fontWeight:600,color:dd.brokerage>0?revSc.color:"#c0504d"}}>{fmt(Math.max(0,dd.brokerage))}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{border:"1px solid rgba(201,168,76,.25)",borderRadius:10,padding:16,background:"rgba(201,168,76,.05)"}}>
+              <div style={{fontSize:9,letterSpacing:2,color:"#c9a84c",textTransform:"uppercase",marginBottom:8}}>⚠ The Cliff</div>
+              <div style={{fontSize:11,color:"#7a6a40",lineHeight:1.9}}>
+                There's a hard cliff between the bonus tiers. At <strong style={{color:"#c9a84c"}}>149.9% of quota = 1× ($23,750)</strong> vs <strong style={{color:"#5e8a6a"}}>150.0% = 4× ($95,000)</strong>. That's a $71,250 swing on the last dollar of revenue. The team is already past this threshold at {fmtM(CURRENT_REV)}, so the 4× is locked. The 200% threshold ({fmtM(THRESHOLD_200)}) is what's still in play.
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div style={{marginTop:24,fontSize:9,color:"#1e2e22",lineHeight:1.9}}>
+          Estimates only · 2026 tax brackets · single filer · standard deduction · 41% supplemental bonus rate · proration policy subject to employment agreement · consult HR and CPA
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<FiscalYearAnalysis />);
+</script>
+</body>
+</html>
